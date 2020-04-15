@@ -48,6 +48,36 @@ provisioner "file" {
 
             "echo '== 6. Removing IPtables and reboot'",
             "sudo -u root apt-get -y remove iptables",
-            "sudo -u root reboot"]
+            "sudo /bin/su -c \"(sleep 2 && reboot)&\""]
   }
+
 }
+
+resource "null_resource" "FoggyKitchenPauseFor3Minutes" {
+   depends_on = [null_resource.FoggyKitchenJitsiMeetServerProvisioner]
+   
+   provisioner "local-exec" {
+        command = "sleep 180"
+   }
+}
+
+resource "null_resource" "FoggyKitchenJitsiMeetServerStatus" {
+    depends_on = [null_resource.FoggyKitchenPauseFor3Minutes]
+
+    provisioner "remote-exec" {
+        connection {
+                type     = "ssh"
+                user     = "ubuntu"
+                host     = data.oci_core_vnic.FoggyKitchenJitsiMeetServer_VNIC1.public_ip_address
+                private_key = file(var.private_key_oci)
+                script_path = "/home/ubuntu/myssh.sh"
+                agent = false
+                timeout = "10m"
+        }
+  inline = ["echo '== 1. Verify Jitsi status'",
+            "sudo /bin/su -c \"systemctl status jitsi-videobridge2 | cat\""]
+            
+  }
+
+}
+
